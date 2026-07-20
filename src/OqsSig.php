@@ -9,6 +9,13 @@ use Oqs\Exception\OqsException;
 /**
  * PHP wrapper around liboqs' OQS_SIG API (digital signature schemes
  * such as ML-DSA / Dilithium, Falcon, SLH-DSA) using FFI.
+ *
+ * Example:
+ *   $signer = new OqsSig('ML-DSA-65');
+ *   $keys   = $signer->generateKeypair();
+ *
+ *   $signature = $signer->sign('hello world', $keys['secret_key']);
+ *   $valid     = $signer->verify('hello world', $signature, $keys['public_key']);
  */
 final class OqsSig
 {
@@ -24,7 +31,7 @@ final class OqsSig
         $this->instanceFfi = self::ffi();
 
         $sig = $this->instanceFfi->OQS_SIG_new($algName);
-        if (\FFI::isNull($sig)) {
+        if ($sig === null || \FFI::isNull($sig)) {
             throw new OqsException(
                 "Signature algorithm '{$algName}' is not supported or was disabled at compile time"
             );
@@ -106,7 +113,9 @@ final class OqsSig
 
         $ffi = $this->instanceFfi;
 
-        $msgBuf = $ffi->new('uint8_t[' . strlen($message) . ']');
+        // FFI cannot allocate a zero-length array; allocate at least 1 byte
+        // and pass the real (possibly zero) length separately to liboqs.
+        $msgBuf = $ffi->new('uint8_t[' . max(1, strlen($message)) . ']');
         if (strlen($message) > 0) {
             \FFI::memcpy($msgBuf, $message, strlen($message));
         }
@@ -152,7 +161,9 @@ final class OqsSig
 
         $ffi = $this->instanceFfi;
 
-        $msgBuf = $ffi->new('uint8_t[' . strlen($message) . ']');
+        // FFI cannot allocate a zero-length array; allocate at least 1 byte
+        // and pass the real (possibly zero) length separately to liboqs.
+        $msgBuf = $ffi->new('uint8_t[' . max(1, strlen($message)) . ']');
         if (strlen($message) > 0) {
             \FFI::memcpy($msgBuf, $message, strlen($message));
         }

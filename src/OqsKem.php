@@ -9,6 +9,16 @@ use Oqs\Exception\OqsException;
 /**
  * PHP wrapper around liboqs' OQS_KEM API (key encapsulation mechanisms
  * such as ML-KEM / Kyber) using FFI.
+ *
+ * Example:
+ *   $alice = new OqsKem('ML-KEM-768');
+ *   $keys  = $alice->generateKeypair();
+ *
+ *   $bob = new OqsKem('ML-KEM-768');
+ *   $enc = $bob->encapsulate($keys['public_key']);
+ *
+ *   $secret = $alice->decapsulate($enc['ciphertext'], $keys['secret_key']);
+ *   // $secret === $enc['shared_secret']
  */
 final class OqsKem
 {
@@ -24,7 +34,7 @@ final class OqsKem
         $this->instanceFfi = self::ffi();
 
         $kem = $this->instanceFfi->OQS_KEM_new($algName);
-        if (\FFI::isNull($kem)) {
+        if ($kem === null || \FFI::isNull($kem)) {
             throw new OqsException(
                 "KEM algorithm '{$algName}' is not supported or was disabled at compile time"
             );
