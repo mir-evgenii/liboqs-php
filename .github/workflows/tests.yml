@@ -1,0 +1,79 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        php-version: ['8.1', '8.2', '8.3', '8.4']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # --- Build liboqs from source ---
+      # We cache the build so CI doesn't recompile liboqs on every run.
+      - name: Cache liboqs build
+        id: cache-liboqs
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/liboqs.so*
+            /usr/local/include/oqs
+          key: liboqs-${{ runner.os }}-v0.10.0
+
+      - name: Install liboqs build dependencies
+        if: steps.cache-liboqs.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build build-essential
+
+      - name: Build and install liboqs
+        if: steps.cache-liboqs.outputs.cache-hit != 'true'
+        run: |
+          git clone --branch main --depth 1 https://github.com/open-quantum-safe/liboqs.git /tmp/liboqs
+          cmake -S /tmp/liboqs -B /tmp/liboqs/build -GNinja -DBUILD_SHARED_LIBS=ON
+          cmake --build /tmp/liboqs/build --parallel
+          sudo cmake --install /tmp/liboqs/build
+
+      - name: Refresh linker cache
+        run: sudo ldconfig
+
+      - name: Verify liboqs is installed
+        run: |
+          ls -la /usr/local/lib/liboqs.so*
+          ls -la /usr/local/include/oqs/kem.h
+
+      # --- Set up PHP with FFI enabled ---
+      - name: Set up PHP ${{ matrix.php-version }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: ffi, openssl
+          ini-values: ffi.enable=true
+          coverage: none
+
+      - name: Verify FFI is enabled
+        run: php -m | grep -i FFI
+
+      # --- Install PHP dependencies ---
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress
+
+      # --- Run tests ---
+      - name: Run PHPUnit
+        run: vendor/bin/phpunit --testdox
