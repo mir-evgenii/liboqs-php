@@ -1,5 +1,10 @@
 # liboqs-php
 
+[![Tests](https://github.com/mir-evgenii/liboqs-php/actions/workflows/tests.yml/badge.svg)](https://github.com/mir-evgenii/liboqs-php/actions/workflows/tests.yml)
+[![Packagist Version](https://img.shields.io/packagist/v/mir-evgenii/liboqs-php)](https://packagist.org/packages/mir-evgenii/liboqs-php)
+[![PHP Version](https://img.shields.io/packagist/php-v/mir-evgenii/liboqs-php)](https://packagist.org/packages/mir-evgenii/liboqs-php)
+[![Packagist Downloads](https://img.shields.io/packagist/dt/mir-evgenii/liboqs-php)](https://packagist.org/packages/mir-evgenii/liboqs-php)
+
 Post-quantum cryptography for PHP — key encapsulation (ML-KEM), digital signatures (ML-DSA), and hybrid encryption — via [FFI](https://www.php.net/manual/en/book.ffi.php) bindings to [liboqs](https://github.com/open-quantum-safe/liboqs) (the [Open Quantum Safe](https://openquantumsafe.org/) project). No PHP extension compilation required.
 
 > ⚠️ **Status**: experimental / educational. This is a thin FFI wrapper around liboqs — it has not been independently security-audited. Review the [security notes](#security-notes) before using it for anything sensitive.
