@@ -1,5 +1,5 @@
 {
-    "name": "yourname/liboqs-php",
+    "name": "mir-evgenii/liboqs-php",
     "description": "Post-quantum cryptography (ML-KEM, ML-DSA) for PHP via FFI bindings to liboqs",
     "type": "library",
     "license": "MIT",
