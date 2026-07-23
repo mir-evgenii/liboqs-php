@@ -81,8 +81,6 @@ php -m | grep -i ffi
 composer require mir-evgenii/liboqs-php
 ```
 
-(Not yet published to Packagist — for now, clone this repo and `composer install` locally.)
-
 ## Usage
 
 ### Key encapsulation (ML-KEM)
