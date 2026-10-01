@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Oqs;
 
 use Oqs\Exception\OqsException;
+use Oqs\Internal\LibraryLocator;
 
 /**
  * PHP wrapper around liboqs' OQS_KEM API (key encapsulation mechanisms
@@ -19,19 +20,26 @@ use Oqs\Exception\OqsException;
  *
  *   $secret = $alice->decapsulate($enc['ciphertext'], $keys['secret_key']);
  *   // $secret === $enc['shared_secret']
+ *
+ * The liboqs shared library is located via (in priority order): an explicit
+ * $libraryPath constructor argument, the LIBOQS_PATH environment variable,
+ * then a handful of common install locations for the current OS.
  */
 final class OqsKem
 {
     /** Cached FFI instance shared across all OqsKem objects in this process. */
     private static ?\FFI $ffi = null;
 
+    /** Path the cached FFI instance above was loaded from. */
+    private static ?string $loadedLibraryPath = null;
+
     private \FFI $instanceFfi;
     private \FFI\CData $kem;
     private bool $freed = false;
 
-    public function __construct(string $algName = 'ML-KEM-768')
+    public function __construct(string $algName = 'ML-KEM-768', ?string $libraryPath = null)
     {
-        $this->instanceFfi = self::ffi();
+        $this->instanceFfi = self::ffi($libraryPath);
 
         $kem = $this->instanceFfi->OQS_KEM_new($algName);
         if ($kem === null || \FFI::isNull($kem)) {
@@ -181,11 +189,28 @@ final class OqsKem
     }
 
     /**
+     * The full path liboqs was (or would be) loaded from in this process.
+     * Returns null if no OqsKem instance has been constructed yet.
+     */
+    public static function loadedLibraryPath(): ?string
+    {
+        return self::$loadedLibraryPath;
+    }
+
+    /**
      * Load (once per process) and cache the FFI binding to liboqs.
      */
-    private static function ffi(): \FFI
+    private static function ffi(?string $libraryPath): \FFI
     {
         if (self::$ffi !== null) {
+            if ($libraryPath !== null && $libraryPath !== self::$loadedLibraryPath) {
+                throw new OqsException(
+                    'liboqs is already loaded from ' . self::$loadedLibraryPath . ' in this process ' .
+                    "and cannot be switched to {$libraryPath}. Set the library path before the first " .
+                    'OqsKem usage (via LIBOQS_PATH or the constructor argument).'
+                );
+            }
+
             return self::$ffi;
         }
 
@@ -200,15 +225,19 @@ final class OqsKem
             throw new OqsException('Could not read liboqs_ffi.h header file');
         }
 
-        return self::$ffi = \FFI::cdef($header, self::resolveLibraryPath());
+        $resolvedPath = self::resolveLibraryPath($libraryPath);
+        self::$loadedLibraryPath = $resolvedPath;
+
+        return self::$ffi = \FFI::cdef($header, $resolvedPath);
     }
 
     /**
      * Resolve the liboqs shared library path for the current platform.
-     * Adjust these paths/filenames to match where liboqs is installed
-     * on your system(s).
+     *
+     * Priority: explicit $override argument, then the LIBOQS_PATH environment
+     * variable, then a handful of common install locations for the current OS.
      */
-    private static function resolveLibraryPath(): string
+    private static function resolveLibraryPath(?string $override): string
     {
         $candidates = match (PHP_OS_FAMILY) {
             'Darwin' => [
@@ -226,15 +255,6 @@ final class OqsKem
             default => [],
         };
 
-        foreach ($candidates as $path) {
-            if (file_exists($path)) {
-                return $path;
-            }
-        }
-
-        throw new OqsException(
-            'liboqs shared library not found. Checked: ' . implode(', ', $candidates) .
-            '. Install liboqs or edit OqsKem::resolveLibraryPath().'
-        );
+        return LibraryLocator::resolve($override, $candidates);
     }
 }

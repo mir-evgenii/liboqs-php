@@ -47,7 +47,7 @@ ninja
 sudo ninja install
 ```
 
-This installs `liboqs.dylib` to `/usr/local/lib` (Intel) or you may need to point to `/opt/homebrew/lib` on Apple Silicon — see [`resolveLibraryPath()`](#library-path-resolution) below.
+This installs `liboqs.dylib` to `/usr/local/lib` (Intel) or `/opt/homebrew/lib` on Apple Silicon; if your build lives somewhere else (e.g. a custom `--prefix`), see [Library path resolution](#library-path-resolution) below.
 
 **Linux:**
 
@@ -172,13 +172,29 @@ or check the identifiers directly in your installed `/usr/local/include/oqs/kem.
 
 ## Library path resolution
 
-`OqsKem` and `OqsSig` look for the liboqs shared library in a few standard locations (see `resolveLibraryPath()` in each class):
+`OqsKem` and `OqsSig` locate the liboqs shared library in this order:
 
-- macOS: `/opt/homebrew/lib/liboqs.dylib`, `/usr/local/lib/liboqs.dylib`
-- Linux: `/usr/local/lib/liboqs.so`, `/usr/lib/liboqs.so`, `/usr/lib/x86_64-linux-gnu/liboqs.so`
-- Windows: `C:\liboqs\bin\oqs.dll`
+1. An explicit path passed as the second constructor argument:
+   ```php
+   $kem = new OqsKem('ML-KEM-768', '/opt/homebrew/lib/liboqs.dylib');
+   ```
+2. The `LIBOQS_PATH` environment variable, pointing at the exact library file:
+   ```bash
+   export LIBOQS_PATH=/usr/lib/x86_64-linux-gnu/liboqs.so.9
+   ```
+3. A few standard locations for the current OS:
+   - macOS: `/opt/homebrew/lib/liboqs.dylib`, `/usr/local/lib/liboqs.dylib`
+   - Linux: `/usr/local/lib/liboqs.so`, `/usr/lib/liboqs.so`, `/usr/lib/x86_64-linux-gnu/liboqs.so`
+     (and their versioned form, e.g. `liboqs.so.9`, if no unversioned symlink exists)
+   - Windows: `C:\liboqs\bin\oqs.dll`
 
-If your installation lives elsewhere, edit `resolveLibraryPath()` in `src/OqsKem.php` / `src/OqsSig.php` accordingly.
+Use `LIBOQS_PATH` (or the constructor argument) for non-standard installs — e.g. a `--prefix` build on
+Apple Silicon that isn't under Homebrew's default prefix, or a distro package that only ships a
+versioned `.so` without a symlink your default resolution path doesn't already cover. This works
+without editing anything under `vendor/`, so it survives `composer update`.
+
+liboqs is loaded once per PHP process and cached; `OqsKem::loadedLibraryPath()` /
+`OqsSig::loadedLibraryPath()` report which path was actually used, for debugging.
 
 ## Testing
 
